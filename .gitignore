@@ -19,6 +19,7 @@ config.h
 config.status
 config.cache
 config.log
+robu.cache
 
 configure~
 
