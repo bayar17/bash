@@ -24,7 +24,6 @@
 #  include <unistd.h>
 #endif
 #include <bashtypes.h>
-
 #if defined (HAVE_MEMFD_CREATE) || defined (HAVE_SHM_MKSTEMP)
 #  include <sys/mman.h>
 #endif
@@ -75,18 +74,20 @@ anonopen (const char *name, int flags, char **fn)
   int fd, flag;
   char *fname;
 
-#if defined (HAVE_MEMFD_CREATE)
-  /* "Names do not affect the behavior of the file descriptor." */
-  fd = memfd_create ("anonopen", MFD_NOEXEC_SEAL);
-  if (fd >= 0)
-    {
-      if (fn)
-	*fn = 0;
-      return fd;
-    }
-  /* If memfd_create fails, we fall through to the unlinked-shm-or-regular-file
-     implementation. */
-#endif
+/*
+ #if defined (HAVE_MEMFD_CREATE)
+ // "Names do not affect the behavior of the file descriptor."
+ // fd = memfd_create ("anonopen", MFD_NOEXEC_SEAL);
+ // if (fd >= 0)
+ //   {
+ //     if (fn)
+ //       *fn = 0;
+ //     return fd;
+ //   }
+ // If memfd_create fails, we fall through to the unlinked-shm-or-regular-file
+ // implementation.
+ #endif
+*/
 
   /* Heuristic */
   flag = (name && *name == '/') ? MT_TEMPLATE : MT_USETMPDIR;

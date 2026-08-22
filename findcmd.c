@@ -143,9 +143,9 @@ file_status (const char *name)
      file access mechanisms into account.  eaccess uses the effective
      user and group IDs, not the real ones.  We could use sh_eaccess,
      but we don't want any special treatment for /dev/fd. */
-  if (exec_name_should_ignore (name) == 0 && eaccess (name, X_OK) == 0)
+  if (exec_name_should_ignore (name) == 0 && access (name, X_OK) == 0)
     r |= FS_EXECABLE;
-  if (eaccess (name, R_OK) == 0)
+  if (access (name, R_OK) == 0)
     r |= FS_READABLE;
 
   return r;

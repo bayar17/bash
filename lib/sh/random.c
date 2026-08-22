@@ -22,8 +22,10 @@
 
 #include "bashtypes.h"
 
-#if defined (HAVE_SYS_RANDOM_H)
+/* Robust header inclusion for random number generation support */
+#if defined (HAVE_SYS_RANDOM_H) && !defined(__FREESTANDING__)
 #  include <sys/random.h>
+#  define HAVE_GETRANDOM 1
 #endif
 
 #if defined (HAVE_UNISTD_H)
@@ -32,6 +34,7 @@
 #include "filecntl.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "bashansi.h"
 
 #include "shell.h"
@@ -176,13 +179,16 @@ urandom_close (void)
   urandfd = -1;
 }
 
+/* Robust getrandom implementation with fallback support */
 #if !defined (HAVE_GETRANDOM)
-/* Imperfect emulation of getrandom(2). */
+
+/* Define constants for getrandom flags if not present */
 #ifndef GRND_NONBLOCK
 #  define GRND_NONBLOCK 1
 #  define GRND_RANDOM 2
 #endif
 
+/* Imperfect emulation of getrandom(2) for systems without native support */
 static ssize_t
 getrandom (void *buf, size_t len, unsigned int flags)
 {
@@ -190,11 +196,13 @@ getrandom (void *buf, size_t len, unsigned int flags)
   ssize_t r;
   static int urand_unavail = 0;
 
-#if HAVE_GETENTROPY
+#if defined(HAVE_GETENTROPY)
+  /* getentropy is available on newer systems and more portable */
   r = getentropy (buf, len);
-  return (r == 0) ? len : -1;
+  return (r == 0) ? (ssize_t)len : -1;
 #endif
 
+  /* Fallback: use /dev/urandom */
   if (urandfd == -1 && urand_unavail == 0)
     {
       oflags = O_RDONLY;
@@ -209,28 +217,35 @@ getrandom (void *buf, size_t len, unsigned int flags)
 	  return -1;
 	}
     }
-  if (urandfd >= 0 && (r = read (urandfd, buf, len)) == len)
+  
+  if (urandfd >= 0 && (r = read (urandfd, buf, len)) == (ssize_t)len)
     return (r);
+  
   return -1;
 }
-#endif
-      
+
+#endif /* !HAVE_GETRANDOM */
+
 u_bits32_t
 get_urandom32 (void)
 {
   u_bits32_t ret;
 
-  if (getrandom ((void *)&ret, sizeof (ret), GRND_NONBLOCK) == sizeof (ret))
+  /* Try to get entropy from system entropy sources */
+  if (getrandom ((void *)&ret, sizeof (ret), GRND_NONBLOCK) == (ssize_t)sizeof (ret))
     return (last_rand32 = ret);
 
+  /* Fallback to arc4random if available */
 #if defined (HAVE_ARC4RANDOM)
   ret = arc4random ();
 #else
+  /* Final fallback: use pseudo-random generator with perturbation */
   if (subshell_environment)
     perturb_rand32 ();
   do
     ret = brand32 ();
   while (ret == last_rand32);
 #endif
+  
   return (last_rand32 = ret);
 }
